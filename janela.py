@@ -6,13 +6,13 @@ from dominio.livro import Livro
 from dominio.usuario import Usuario
 from dominio.emprestimo import Emprestimo
 
-acervo = [
-        Livro("A Vegetariana", "Han Kang", 2007),
-        Livro("Carmilla", "Sheridan Le Fu", 1872),
-        Livro("A Redoma de Vidro", "Sylvia Plath",1963),
-        Livro("A Hora da Estrela", "Clarisse Lispector", 1977),
-        Livro("A Metamorfose","Franz Kafka",1915)
-]
+# a janela passa a conhecer o repositório - e continua sem conhecer o SQLite
+from dados.repositorio_livro import RepositorioLivro
+
+repositorio = RepositorioLivro()
+
+# o que a ListBox está mostrando agora, na mesma ordem da tela
+livros_na_tela = []
 
 emprestimos = []
 usuario = Usuario("Aluno", "0000")
@@ -24,8 +24,7 @@ janela.geometry("460x560")  #largura x altura, em pixels
 tk.Label(janela, text="Acervo", font=("CS Flexion", 14)).pack(pady=6)
 
 lista = tk.Listbox(janela, width=52, height=6)
-for livro in acervo:
-    lista.insert(tk.END,str(livro))
+
 lista.pack(padx=10) 
 
 campo = tk.Entry(janela, width=34)
@@ -38,9 +37,9 @@ def emprestar():
     procurado = campo.get()
 
     escolhido = None
-    for item in acervo:
-        if item.titulo.lower() == procurado.lower():
-                escolhido = item
+    for item in repositorio.listar():
+          if item.titulo.lower() == procurado.lower():
+               escolhido = item
 
     if escolhido is None:
         resultado.config(text= "Não está no acervo!", fg="red")
@@ -90,9 +89,14 @@ campo_ano.grid(row=2, column=1, pady=2)
 
 def atualizar_lista():
     lista.delete(0, tk.END)
-    for livro in acervo:
-       lista.insert(tk.END, str(livro))
 
+# a tela não guarda nada: ela mostra o que o repositório devolveu agora
+    livros_na_tela.clear()
+
+# o for que estava aqui percorria acervo. agora ele percorre o banco
+    for livro in repositorio.listar():
+         livros_na_tela.append(livro)
+         lista.insert(tk.END, str(livro))
 
 def cadastrar():
     titulo = campo_titulo.get()
@@ -101,7 +105,8 @@ def cadastrar():
 
     try:
         livro = Livro(titulo, autor, int(ano))
-        acervo.append(livro)
+        # antes era acervo.append(livro) - e sumia ao fechar a janela
+        repositorio.salvar(livro)
         atualizar_lista()
         campo_titulo.delete(0, tk.END)
         campo_autor.delete(0, tk.END)
@@ -110,11 +115,60 @@ def cadastrar():
     except ValueError as erro:
         resultado.config(text=str(erro),fg="red")
 
-tk.Button(janela, text="Cadastrar", command=cadastrar).pack(pady=6)  
+tk.Button(janela, text="Cadastrar", command=cadastrar).pack(pady=6)
+
+def excluir ():
+     livro= livro_selecionado()
+
+     if livro is None:
+          return
+
+     # quem some do banco e o id, nao a linha da tela
+     repositorio.excluir(livro.id)
+     atualizar_lista()
+     resultado.config(text="Excluído: " + livro.titulo, fg="blue")
+
+botoes = tk.Frame(janela)
+botoes.pack()
+
+tk.Button(botoes, text="Excluir", command=excluir).pack(side="left", padx=4)
 
 
+def alterar():
+     livro = livro_selecionado()
 
-   
+     if livro is None:
+          return
+     try:
+          # a regra continua na classe: ano inválido não entra no banco
+          # porque o setter do dominio recusa antes
+          livro.titulo = campo_titulo.get()
+          livro.autor = campo_autor.get()
+          livro.ano = int(campo_ano.get())
 
+          repositorio.atualizar(livro)
+          atualizar_lista()
+          resultado.config(text="Alterado: " + str(livro), fg="blue")
+     except ValueError as erro:
+         resultado.config(text=str(erro), fg="red")
+
+# a primeira carga da tela: ela nasce vazia e o banco a preenche
+atualizar_lista()
+
+def livro_selecionado():
+     selecionados = lista.curselection()
+
+     if not selecionados:
+          resultado.config(text= "Selecione um livro na lista.", fg="red")
+          return None
+
+     # a posição na tela NÃO e o id do banco - ela só serve para achar o objeto
+     posicao = selecionados[0]
+     return livros_na_tela[posicao]
+     
+tk.Button(botoes, text="Alterar", command=alterar).pack(side="left", padx=4)
 
 janela.mainloop()
+
+# quando a janela fecha, a conexão fecha junto
+repositorio.fechar()

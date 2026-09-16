@@ -21,19 +21,34 @@ print("Tabela criada com sucesso!")
 # Para inserir múltiplos registros, usamos executemany e passamos uma LISTA de tuplas
 cursor.executemany(
     "INSERT INTO livro (titulo, autor, ano) VALUES (?, ?, ?)",
-    [ 
+    [
         ("A Vegetariana", "Han Kang", 2007),
-        ("Carmilla", "Sheridan Le Fu", 1872),
+        ("Carmilla", "Sheridan Le Fanu", 1872),
         ("A Redoma de Vidro", "Sylvia Plath",1963),
         ("A Hora da Estrela", "Clarisse Lispector", 1977),
         ("A Metamorfose","Franz Kafka",1915)
-    ]        
-         
+    ]
 )
 
 print("Inserido")
 
 conexao.commit()  # confirma as alterações no banco de dados
+
+# WHERE é o filtro: o banco devolve só as linhas que satisfazem a condição. No caso, id = 2
+cursor.execute(
+    "SELECT id, titulo, autor, ano FROM livro WHERE id = ?", 
+   (4,))
+
+print(cursor.fetchone()) # fetchone() traz uma linha só - ou None se nada foi encontrado
+
+cursor.execute(
+    "UPDATE livro set ano = ? WHERE id = ?",
+    (1977, 4)
+)
+
+# DELETE apaga uma linha do banco de dados. O WHERE é obrigatório, senão o banco apaga tudo!
+cursor.execute("DELETE FROM livro WHERE id = ?",(4,))
+conexao.commit()
 
 cursor.execute("SELECT id, titulo, autor, ano FROM livro")
 
